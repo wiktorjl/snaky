@@ -1,0 +1,13 @@
+{
+  "name": "snaky-neon-arcade",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "node scripts/serve.mjs --source",
+    "test": "node --test test/*.test.js",
+    "build": "node scripts/build.mjs",
+    "preview": "node scripts/serve.mjs"
+  }
+}

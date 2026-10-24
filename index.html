@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#05030a">
+  <meta name="description" content="A 1990s-style arcade Snake game. Arrow keys or WASD to move.">
+  <title>Snaky — Arcade</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./src/main.js"></script>
+</head>
+<body>
+  <main class="arcade" aria-labelledby="game-title">
+    <section class="cabinet" aria-label="Snaky arcade game">
+      <header class="marquee">
+        <h1 id="game-title">SNAKY</h1>
+        <p>1 PLAYER</p>
+      </header>
+      <div class="screen-bezel">
+        <div class="hud">
+          <div class="hud-block"><span class="hud-label">1UP</span><span class="score" id="score">000</span></div>
+          <div class="hud-block"><span class="hud-label">HI-SCORE</span><span class="best-score" id="best">000</span></div>
+          <button id="mode-toggle" class="hud-mode" type="button" aria-label="Switch to Classic mode" title="Switch mode (starts a new run)">
+            <span class="hud-label">MODE <span class="hud-mode-swap" aria-hidden="true">⇄</span></span>
+            <span class="hud-mode-value"><span id="mode-label">ARCADE</span><span id="speed-label">SPEED 1</span></span>
+          </button>
+        </div>
+        <div class="board-frame">
+          <div id="play-area" class="play-area" tabindex="0" role="region" aria-label="Snake play area" aria-describedby="keyboard-help">
+            <canvas id="board" width="600" height="600" role="img" aria-label="20 by 20 Snake board">The game board requires a browser with Canvas support.</canvas>
+            <div class="board-overlay" id="overlay" aria-hidden="true">
+              <svg class="pixel-mascot" viewBox="0 0 48 36" aria-hidden="true"><path d="M4 12h8v16h12v-8h-4V8h24v16H32v12H4z" fill="currentColor"/><path d="M28 12h4v4h-4zm8 0h4v4h-4z" fill="#08030d"/><path d="M44 16h4v4h-4" fill="#ff3ea5"/></svg>
+              <span class="overlay-kicker" id="overlay-kicker">1UP</span>
+              <span class="overlay-title" id="overlay-title">READY</span>
+              <span class="overlay-note" id="overlay-note" hidden></span>
+            </div>
+          </div>
+        </div>
+        <div class="screen-status"><span id="board-state">READY</span><span>20 × 20</span></div>
+      </div>
+      <div class="control-deck">
+        <div class="actions">
+          <button id="primary-action" class="primary-button" aria-keyshortcuts="Enter Space"><span id="primary-label">Start game</span><kbd class="button-key">ENTER</kbd></button>
+          <button id="restart" class="secondary-button" hidden>Restart game</button>
+        </div>
+        <div class="help" id="keyboard-help">
+          <span><kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd> / <kbd>WASD</kbd> MOVE</span>
+          <span><kbd>P</kbd> / <kbd>ESC</kbd> PAUSE</span>
+        </div>
+      </div>
+    </section>
+  </main>
+  <noscript><p class="noscript">Enable JavaScript to play Snaky.</p></noscript>
+</body>
+</html>
