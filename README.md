@@ -1,6 +1,9 @@
-![Jev, TypeSafe AI's decision model, playing Snaky in Arcade mode](docs/jev-demo.gif)
 
-# Snaky — Arcade
+# Snaky, an arcade game played ay an AI
+
+Demo of Jev playing a snake game:
+
+![Jev, TypeSafe AI's decision model, playing Snaky in Arcade mode](docs/jev-demo.gif)
 
 A small, dependency-free Snake game styled as a 1990s arcade cabinet. It has a pixel board, solid walls, focused keyboard controls, a best score saved in the current browser, and two speeds of play: Arcade starts slower and accelerates, while Classic stays fixed.
 
