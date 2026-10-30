@@ -2,6 +2,7 @@ import { createController } from './controller.js';
 import { directionForKey, gameMode, speedLevel, tickDelay } from './engine.js';
 import { createBestScore } from './storage.js';
 import { drawBoard } from './renderer.js';
+import { createJevDecider } from './jev.js';
 
 const STATES = {
   ready: { label: 'Start game', board: 'READY', kicker: '1UP', title: 'READY' },
@@ -11,11 +12,16 @@ const STATES = {
   won: { label: 'Restart game', board: 'CLEARED', kicker: '1UP', title: 'YOU WIN', note: 'BOARD CLEARED · PRESS RESTART' },
 };
 
-export function mountGame({ document: doc = document, window: win = window, random = Math.random, clock, mode = 'arcade', initialState, storageGetter = () => win.localStorage } = {}) {
+export function mountGame({ document: doc = document, window: win = window, random = Math.random, clock, mode = 'arcade', initialState, player = 'human', jevDecider, storageGetter = () => win.localStorage } = {}) {
   const byId = id => doc.getElementById(id);
   const area = byId('play-area'), primary = byId('primary-action'), restart = byId('restart');
   const modeToggle = byId('mode-toggle');
   const bestScore = createBestScore(storageGetter);
+  const jevStatus = byId('jev-status');
+  const playerInputs = [...doc.querySelectorAll('#player-select input')];
+  let activePlayer = player === 'jev' ? 'jev' : 'human';
+  let jevError = '';
+  let decide = jevDecider;
   let previousStatus;
   const listeners = [];
   const listen = (target, type, handler) => { target.addEventListener(type, handler); listeners.push(() => target.removeEventListener(type, handler)); };
@@ -23,7 +29,19 @@ export function mountGame({ document: doc = document, window: win = window, rand
     const info = STATES[state.status];
     const activeMode = gameMode(state);
     byId('score').textContent = String(state.score).padStart(3, '0');
-    byId('best').textContent = String(bestScore.record(state.score)).padStart(3, '0');
+    // A Jev run must not overwrite the human's saved record.
+    byId('best').textContent = String(activePlayer === 'jev' ? bestScore.get() : bestScore.record(state.score)).padStart(3, '0');
+    byId('marquee-player').textContent = activePlayer === 'jev' ? 'JEV PLAYS' : '1 PLAYER';
+    for (const input of playerInputs) {
+      input.checked = input.value === activePlayer;
+      input.disabled = state.status === 'running';
+    }
+    if (state.status === 'running') jevError = '';
+    // Shown for the whole Jev session, so starting a run does not resize the cabinet.
+    const note = jevError || (activePlayer === 'jev' ? 'JEV STEERS THE SNAKE · KEYS ARE DISABLED' : '');
+    jevStatus.hidden = !note;
+    jevStatus.textContent = note;
+    jevStatus.dataset.tone = jevError ? 'error' : 'info';
     byId('mode-label').textContent = activeMode === 'arcade' ? 'ARCADE' : 'CLASSIC';
     byId('speed-label').textContent = activeMode === 'arcade' ? `SPEED ${speedLevel(state)}` : `${tickDelay(state)} MS`;
     modeToggle.disabled = state.status === 'running';
@@ -46,7 +64,12 @@ export function mountGame({ document: doc = document, window: win = window, rand
       else if (old && (state.status === 'gameover' || state.status === 'won' || (state.status === 'paused' && doc.activeElement !== area))) primary.focus({ preventScroll: true });
     }
   };
-  const controller = createController({ random, mode, onChange: render, ...(clock ? {clock} : {}), ...(initialState ? {initialState} : {}) });
+  const jevPlayer = () => (decide ??= createJevDecider());
+  const showJevError = error => {
+    jevError = `JEV ERROR: ${error?.message ?? 'request failed'} · PRESS RESUME TO RETRY`;
+    render(controller.getState());
+  };
+  const controller = createController({ random, mode, onChange: render, onDecisionError: showJevError, ...(activePlayer === 'jev' ? { decide: jevPlayer() } : {}), ...(clock ? {clock} : {}), ...(initialState ? {initialState} : {}) });
   render(controller.getState());
   listen(primary, 'click', () => {
     const status = controller.getState().status;
@@ -61,6 +84,16 @@ export function mountGame({ document: doc = document, window: win = window, rand
     controller.setMode(gameMode(state) === 'arcade' ? 'classic' : 'arcade');
     primary.focus({ preventScroll: true });
   });
+  for (const input of playerInputs) {
+    listen(input, 'change', () => {
+      if (controller.getState().status === 'running' || !input.checked) return;
+      activePlayer = input.value === 'jev' ? 'jev' : 'human';
+      jevError = '';
+      controller.setDecider(activePlayer === 'jev' ? jevPlayer() : null);
+      render(controller.getState());
+      primary.focus({ preventScroll: true });
+    });
+  }
   listen(doc, 'keydown', event => {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
     if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -88,6 +121,7 @@ export function mountGame({ document: doc = document, window: win = window, rand
     const direction = directionForKey(event.key);
     if (!direction || state.status !== 'running') return;
     event.preventDefault();
+    if (activePlayer === 'jev') return;
     if (!event.repeat) controller.steer(direction);
   });
   listen(doc, 'visibilitychange', () => { if (doc.hidden) controller.pause(); });

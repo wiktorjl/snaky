@@ -11,11 +11,14 @@ export function createController({
   },
   mode = 'classic',
   initialState,
+  decide = null,
+  onDecisionError = () => {},
 } = {}) {
   let state = initialState ?? createGame(random, mode);
   let timer = null;
   let generation = 0;
   let disposed = false;
+  let decider = decide;
 
   function stopClock() {
     generation += 1;
@@ -23,16 +26,36 @@ export function createController({
     timer = null;
   }
 
+  function advance() {
+    timer = null;
+    if (state.status !== 'running') return;
+    state = tick(state, random);
+    onChange(state);
+    schedule();
+  }
+
   function schedule() {
     if (disposed || state.status !== 'running' || timer !== null) return;
     const scheduledGeneration = generation;
+    // The decision runs while the tick delay elapses, so a slow decider only delays a tick that outlasts it.
+    const snapshot = state;
+    const decision = decider
+      ? Promise.resolve().then(() => decider(snapshot)).then((direction) => ({ direction }), (error) => ({ error }))
+      : null;
     timer = clock.setTimeout(() => {
       if (disposed || scheduledGeneration !== generation) return;
-      timer = null;
-      if (state.status !== 'running') return;
-      state = tick(state, random);
-      onChange(state);
-      schedule();
+      if (!decision) { advance(); return; }
+      decision.then(({ direction, error }) => {
+        if (disposed || scheduledGeneration !== generation) return;
+        if (error) {
+          stopClock();
+          change({ ...state, pendingDirection: null, status: 'paused' });
+          onDecisionError(error);
+          return;
+        }
+        if (direction) state = queueDirection(state, direction);
+        advance();
+      });
     }, tickDelay(state));
   }
 
@@ -66,6 +89,11 @@ export function createController({
       if (disposed || state.status === 'running') return state;
       stopClock();
       return change({ ...createGame(random, mode), status: 'ready' });
+    },
+    setDecider(next) {
+      if (disposed || state.status === 'running') return decider !== null;
+      decider = next ?? null;
+      return decider !== null;
     },
     steer(direction) {
       return change(queueDirection(state, direction));

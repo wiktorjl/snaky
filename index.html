@@ -15,7 +15,7 @@
     <section class="cabinet" aria-label="Snaky arcade game">
       <header class="marquee">
         <h1 id="game-title">SNAKY</h1>
-        <p>1 PLAYER</p>
+        <p id="marquee-player">1 PLAYER</p>
       </header>
       <div class="screen-bezel">
         <div class="hud">
@@ -40,6 +40,12 @@
         <div class="screen-status"><span id="board-state">READY</span><span>20 × 20</span></div>
       </div>
       <div class="control-deck">
+        <fieldset class="player-select" id="player-select">
+          <legend>PLAYER</legend>
+          <label><input type="radio" name="player" value="human" checked><span>HUMAN</span></label>
+          <label><input type="radio" name="player" value="jev"><span>JEV</span></label>
+        </fieldset>
+        <p class="jev-status" id="jev-status" role="status" hidden></p>
         <div class="actions">
           <button id="primary-action" class="primary-button" aria-keyshortcuts="Enter Space"><span id="primary-label">Start game</span><kbd class="button-key">ENTER</kbd></button>
           <button id="restart" class="secondary-button" hidden>Restart game</button>

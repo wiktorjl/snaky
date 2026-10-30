@@ -6,7 +6,7 @@ await rm(out, { recursive: true, force: true });
 await mkdir(out, { recursive: true });
 // The small, fixed module graph has no external dependencies. Embed it so the
 // release also works directly from disk, with no module-fetch/CORS requirement.
-const modules = ['engine', 'controller', 'storage', 'renderer', 'app'];
+const modules = ['engine', 'jev', 'controller', 'storage', 'renderer', 'app'];
 const bundle = (await Promise.all(modules.map(name => readFile(`${root}src/${name}.js`, 'utf8'))))
   .map(code => code.replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '')).join('\n');
 const css = await readFile(`${root}style.css`, 'utf8');

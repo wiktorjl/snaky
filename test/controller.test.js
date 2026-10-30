@@ -248,3 +248,65 @@ test('a synchronous onChange pause cannot leave a tick scheduled', () => {
   assert.equal(controller.getState().status, 'paused');
   assert.equal(clock.count, 0);
 });
+
+const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+test('a decider steers each tick and its decision is requested while the tick delay runs', async () => {
+  const requested = [];
+  const { clock, controller } = setup(undefined, { decide: async (state) => { requested.push(state.snake[0]); return 'up'; } });
+  controller.start();
+  await flush();
+  assert.equal(requested.length, 1);
+  clock.advance(TICK_MS);
+  await flush();
+  assert.deepEqual(controller.getState().snake[0], { x: 10, y: 9 });
+  assert.equal(controller.getState().direction, 'up');
+  assert.equal(requested.length, 2);
+});
+
+test('a slow decision holds the tick until it arrives', async () => {
+  let release;
+  const { clock, controller } = setup(undefined, { decide: () => new Promise((resolve) => { release = resolve; }) });
+  controller.start();
+  clock.advance(TICK_MS * 3);
+  await flush();
+  assert.deepEqual(controller.getState().snake[0], { x: 10, y: 10 });
+  release('down');
+  await flush();
+  assert.deepEqual(controller.getState().snake[0], { x: 10, y: 11 });
+});
+
+test('a failed decision pauses the game and reports the error', async () => {
+  const errors = [];
+  const { clock, controller } = setup(undefined, { decide: async () => { throw new Error('boom'); }, onDecisionError: (error) => errors.push(error.message) });
+  controller.start();
+  clock.advance(TICK_MS);
+  await flush();
+  assert.equal(controller.getState().status, 'paused');
+  assert.deepEqual(controller.getState().snake[0], { x: 10, y: 10 });
+  assert.deepEqual(errors, ['boom']);
+  assert.equal(clock.count, 0);
+});
+
+test('pausing while a decision is pending discards it', async () => {
+  let release;
+  const { clock, controller } = setup(undefined, { decide: () => new Promise((resolve) => { release = resolve; }) });
+  controller.start();
+  await flush();
+  clock.advance(TICK_MS);
+  controller.pause();
+  release('up');
+  await flush();
+  assert.equal(controller.getState().status, 'paused');
+  assert.deepEqual(controller.getState().snake[0], { x: 10, y: 10 });
+});
+
+test('setDecider switches players only while the game is not running', async () => {
+  const { clock, controller } = setup();
+  assert.equal(controller.setDecider(async () => 'down'), true);
+  controller.start();
+  assert.equal(controller.setDecider(null), true);
+  clock.advance(TICK_MS);
+  await flush();
+  assert.deepEqual(controller.getState().snake[0], { x: 10, y: 11 });
+});

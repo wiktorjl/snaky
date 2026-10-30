@@ -19,13 +19,13 @@ function fakeClock() {
   };
 }
 const html = (await (await fetch('../index.html')).text()).replace(/<script type="module" src="\.\/src\/main.js"><\/script>/, '').replace('<head>', `<head><base href="${new URL('../', location.href)}">`);
-async function fixture({ width = 768, random = () => 0, initialState, mode, storageGetter = () => win.localStorage } = {}) {
+async function fixture({ width = 768, random = () => 0, initialState, mode, player, jevDecider, storageGetter = () => win.localStorage } = {}) {
   app?.destroy(); frame?.remove();
   frame = document.createElement('iframe'); frame.title = 'Snaky production interface under test'; frame.style.width = `${width}px`;
   const loaded = new Promise(resolve => frame.addEventListener('load', resolve, {once:true}));
   frame.srcdoc = html; document.getElementById('fixture').append(frame); await loaded;
   doc = frame.contentDocument; win = frame.contentWindow; clock = fakeClock();
-  app = mountGame({document:doc,window:win,random,clock,initialState,storageGetter,...(mode ? {mode} : {})});
+  app = mountGame({document:doc,window:win,random,clock,initialState,storageGetter,...(mode ? {mode} : {}),...(player ? {player} : {}),...(jevDecider ? {jevDecider} : {})});
 }
 function key(value, options = {}, target = byId('play-area')) {
   const event = new win.KeyboardEvent('keydown', {key:value,bubbles:true,cancelable:true,...options});
@@ -150,6 +150,30 @@ await test('360 / 768 / 1440 layouts: square board, no overflow or scroll, visib
     equal(JSON.stringify(state()),snapshot,'Viewport resize preserves run');
   }
   frame.style.width='768px'; frame.style.height='1000px';
+});
+await test('Player selector: Human is default; Jev steers, ignores keys, locks while running, and leaves Best alone', async () => {
+  const settle = () => new Promise(resolve => win.setTimeout(resolve, 0));
+  const pick = value => { const input = doc.querySelector(`#player-select input[value="${value}"]`); input.checked = true; input.dispatchEvent(new win.Event('change', {bubbles:true})); };
+  const asked = [];
+  await fixture({ jevDecider: async snapshot => { asked.push(snapshot.snake[0]); return 'down'; } });
+  equal(doc.querySelector('#player-select input:checked').value, 'human'); equal(byId('marquee-player').textContent, '1 PLAYER'); check(byId('jev-status').hidden);
+  pick('jev'); equal(byId('marquee-player').textContent, 'JEV PLAYS'); check(!byId('jev-status').hidden);
+  const boardTop = byId('board').getBoundingClientRect().top;
+  start(); check([...doc.querySelectorAll('#player-select input')].every(input => input.disabled), 'Selector locks while running');
+  check(!byId('jev-status').hidden, 'Jev note stays while running'); check(Math.abs(byId('board').getBoundingClientRect().top - boardTop) < 1, 'Starting a Jev run must not move the board');
+  key('ArrowUp'); equal(state().pendingDirection, null, 'Keys are ignored while Jev plays');
+  await settle(); clock.advance(200); await settle();
+  equal(state().snake[0], {x:10,y:11}); equal(state().direction, 'down'); check(asked.length >= 1);
+  key('p'); check([...doc.querySelectorAll('#player-select input')].every(input => !input.disabled), 'Selector unlocks when paused');
+  pick('human'); equal(byId('marquee-player').textContent, '1 PLAYER'); check(byId('jev-status').hidden);
+  const food = [{x:11,y:10}];
+  const memory = {}; const storageGetter = () => ({ getItem: name => memory[name] ?? null, setItem: (name, value) => { memory[name] = value; } });
+  await fixture({ player: 'jev', storageGetter, jevDecider: async () => 'right', initialState: {...createGame(() => 0, 'arcade'), food:food[0], status:'ready'} });
+  start(); await settle(); clock.advance(200); await settle();
+  equal(state().score, 10); equal(byId('best').textContent, '000', 'Jev score is not recorded as the human best'); equal(memory, {}, 'Nothing is saved for a Jev run');
+  await fixture({ player: 'jev', jevDecider: async () => { throw new Error('offline'); } });
+  start(); await settle(); clock.advance(200); await settle();
+  equal(state().status, 'paused'); check(byId('jev-status').textContent.includes('offline')); equal(byId('jev-status').dataset.tone, 'error');
 });
 await test('Board and buttons have visible focus styles; canvas pixels render', async () => {
   await fixture(); const area=byId('play-area'); area.focus();
