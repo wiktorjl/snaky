@@ -1,5 +1,5 @@
 
-# Snaky, an arcade game played ay an AI
+# Snaky, an arcade game played by an AI
 
 Demo of Jev playing a snake game:
 
